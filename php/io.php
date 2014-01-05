@@ -9,6 +9,10 @@ class IO{
             file_put_contents($this->filename, '');
     }
 
+    public function __destruct(){
+        $this->unlock();
+    }
+
     public function lock(){
         $lockname = $this->filename . '.lock';
         $nowtime = time();

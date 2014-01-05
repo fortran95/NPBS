@@ -32,9 +32,11 @@ $audienceFile = new IO(dirname(__FILE__) . '/audiences.txt');
 $audiences = $audienceFile->lines();
 
 function quit($code, $text=''){
-    global $cacheFile;
+    global $cacheFile, $taskFile, $audienceFile;
 
     $cacheFile->unlock();
+    $taskFile->unlock();
+    $audienceFile->unlock();
 
 //    header('HTTP/1.0 ' . $code, true, $code);
     die('
