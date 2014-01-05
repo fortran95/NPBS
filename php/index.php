@@ -1,4 +1,8 @@
 <?php
+$audiences = array(
+    
+);
+
 // How long should a packet be stored.
 define('PACKET_STORAGE_LIFE', 86400);
 
@@ -12,7 +16,7 @@ define('LOCK_WAIT', 15);
 define('LOCK_LIFE', 20);
 
 
-//////////////////////////////////////////////////////////////////////////////
+///////////////////////// DEFINE NECESSARY FUNCTIONS /////////////////////////
 $nowtime = time();
 $cacheFilename = dirname(__FILE__) . '/packets.txt';
 $cacheLock = dirname(__FILE__) . '/~.packets.txt.lock';
@@ -39,6 +43,19 @@ function quit($code, $text=''){
     </body>
 </html>');
     exit;
+};
+
+function forward($url){
+    $ch = curl_init();
+
+    curl_setopt($ch, CURLOPT_URL, $ch);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+
+    curl_exec($ch);
+    curl_close($ch);
 };
 
 class PACKET{
@@ -69,6 +86,7 @@ class PACKET{
             'checksum'=>$checksum,
             'ttl'=>$ttl,
             'version'=>$version,
+            '__original__'=>$input,
         );
     }
 
@@ -134,7 +152,7 @@ if(isset($_POST['do'])){
         $_POST['label'],
         $_POST['data']
     );
-    if($packet !== false)
+    if($packet = $classPacket->isPacket($packet))
         $packets[] = $packet;
     else
         quit(400);
@@ -181,14 +199,25 @@ if(!file_exists($cacheFilename)){
 $cached = explode('\n', file_get_contents($cacheFilename));
 
 $ary = array();
+$task = array();
+
 $cacheNeedRenew = CACHE_RENEW_COUNT;
+
+/*
+
+            Cache line:
+
+        0        1       2       3
+    CHECKSUM    TIME    TASK    DATA
+*/
 
 foreach($cached as $item){
     $itemParts = explode(' ', trim($item));
     
-    if(count($itemParts) < 3) continue;
+    if(count($itemParts) < 4) continue;
     if(strlen($itemParts[0]) != 40) continue;
     if(!is_numeric($itemParts[1])) continue;
+    if(!is_numeric($itemParts[2])) continue;
     if(
         $itemParts[1] > $nowtime ||
         $nowtime - $itemParts[1] > PACKET_STORAGE_LIFE
@@ -198,22 +227,42 @@ foreach($cached as $item){
     };
 
     $ary[$itemParts[0]] = array(
-        'data'=>$itemParts[2],
         'time'=>$itemParts[1],
+        'task'=>$itemParts[2],
+        'data'=>$itemParts[3],
     );
 };
 unset($cached);
 
-if($cacheNeedRenew){
+if($cacheNeedRenew <= 0){
     $content = array();
     foreach($ary as $key=>$value){
-        $content[] = "$key {$value[1]} {$value[0]}";
+        $content[] = "$key {$value['time']} {$value['task']} {$value['data']}";
     };
     $content = implode('\n', $content);
     file_put_contents($cacheFilename, $content);
 };
 
-
 unlink($cacheLock);
+
+
+
+
+//////////////////// NETWORK OPERATIONS AND CACHE TASKS //////////////////////
+
+foreach($packets as $packet){
+    if(array_key_exists($packet['checksum'], $ary)) continue;
+    file_put_contents(
+        $cacheFilename, 
+        implode(' ', array(
+            $packet['checksum'],
+            $nowtime,
+            0, // FIXME
+            $packet['__original__'],
+        )) . '\n',
+        FILE_APPEND | LOCK_EX
+    )
+};
+
 
 quit(200, var_dump($packets));
