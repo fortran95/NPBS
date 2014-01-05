@@ -116,9 +116,7 @@ $cached = $cacheFile->explodedLines();
 
 $cacheNeedRenew = CACHE_RENEW_COUNT;
 /*
-
             Cache line:
-
         0        1       2
     CHECKSUM    TIME    DATA
 */
@@ -142,14 +140,12 @@ foreach($cached as $itemParts){
 
 if($cacheNeedRenew <= 0){
     $content = array();
-    foreach($ary as $key=>$value){
-        $content[] = "$key {$value['time']} {$value['data']}";
-    };
-    $content = implode("\n", $content);
-    file_put_contents($cacheFilename, $content);
+    foreach($ary as $key=>$value)
+        $content[] = array($key, $value['time'], $value['data']);
+    $cacheFile->writeExplodedLines($content);
 };
 
-unlink($cacheLock);
+$cacheFile->unlock();
 
 
 
@@ -175,15 +171,11 @@ foreach($packets as $packet){
 
 # get tasks and append to cache file
 foreach($acceptedPackets as $checksum=>$packet){
-    file_put_contents(
-        $cacheFilename, 
-        implode(' ', array(
-            $packet['checksum'],
-            $nowtime,
-            $classPacket->stringify($packet),
-        )) . "\n",
-        FILE_APPEND | LOCK_EX
-    );
+    $cacheFile->appendExploded(array(
+        $packet['checksum'],
+        $nowtime,
+        $classPacket->stringify($packet),
+    ));
 
     if(0 == $packet['ttl']) continue;
 
@@ -196,15 +188,11 @@ foreach($acceptedPackets as $checksum=>$packet){
         $taskURL = $audience . $packetStr;
         $taskID = md5($taskURL);
 
-        file_put_contents(
-            $taskFilename,
-            implode(' ', array(
-                '+',
-                $taskID,
-                $taskURL,
-            )) . "\n",
-            FILE_APPEND | LOCK_EX
-        );
+        $taskFile->append(array(
+            '+',
+            $taskID,
+            $taskURL,
+        ));
     };
 };
 

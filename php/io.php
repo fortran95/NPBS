@@ -58,4 +58,21 @@ class IO{
         return $ret;
     }
 
+    public function writeExplodedLines($write){
+        $content = array();
+        for($write as $parts){
+            $content[] = implode(' ', $parts);
+        };
+        $content = implode("\n", $content);
+        file_put_contents($this->filename, $content);
+    }
+
+    public function appendExploded($parts){
+        file_put_contents(
+            $this->filename,
+            implode(' ', $parts) . "\n",
+            LOCK_EX | FILE_APPEND
+        );
+    }
+
 };
