@@ -59,6 +59,8 @@ function quit($code, $text=''){
 };
 
 function forward($url){
+    return file_get_contents($url);
+    /*
     $ch = curl_init();
 
     curl_setopt($ch, CURLOPT_URL, $ch);
@@ -67,8 +69,12 @@ function forward($url){
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
     curl_setopt($ch, CURLOPT_TIMEOUT, 8);
 
-    curl_exec($ch);
+    $ret = curl_exec($ch);
+    print htmlspecialchars($ret);
     curl_close($ch);
+
+    return $ret;
+    */
 };
 
 $classPacket = new PACKET();
@@ -176,8 +182,6 @@ if($packets){
         $packetStr = $classPacket->stringify($packet);
 
         foreach($audiences as $audience){
-            if(!$audience = trim($audience)) continue;
-
             $taskURL = $audience . $packetStr;
             $taskID = md5($taskURL);
 
