@@ -15,7 +15,7 @@ define('LOCK_LIFE', 20);
 define('REQUEST_PACKETS', 10);
 
 // How much contribute we want, from each browse.
-define('CONTRIBUTE', 1);
+define('CONTRIBUTE', 2);
 
 
 
@@ -25,9 +25,9 @@ require(dirname(__FILE__) . '/packet.php');
 
 $nowtime = time();
 
-$cacheFile = new IO(dirname(__FILE__) . '/packets.txt');
-$taskFile = new IO(dirname(__FILE__) . '/tasks.txt');
-$audienceFile = new IO(dirname(__FILE__) . '/audiences.txt');
+$cacheFile = new IO(dirname(__FILE__) . '/save/packets.txt');
+$taskFile = new IO(dirname(__FILE__) . '/save/tasks.txt');
+$audienceFile = new IO(dirname(__FILE__) . '/save/audiences.txt');
 
 $audiences = $audienceFile->lines();
 
@@ -239,5 +239,14 @@ foreach($selected as $key=>$url){
     print '<a href="' . $url . '" target="_blank">[CLICK HERE TO MANUALLY FORWARD]</a><br />';
     $taskFile->appendExploded(array('-', $key));
 };
+
+require(dirname(__FILE__) . '/securimage.php');
+
+$image = new Securimage();
+if ($image->check($_POST['code']) == true) {
+  echo "Correct!";
+} else {
+  echo "Sorry, wrong code.";
+}
 
 quit(200, var_dump($packets));
