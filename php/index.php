@@ -231,7 +231,7 @@ $taskFile->unlock();
 # pick up some task
 $selected = array();
 foreach($tasks as $key=>$value){
-    if(count($selected) > CONTRIBUTE) break;
+    if(count($selected) >= CONTRIBUTE) break;
     $selected[$key] = $value;
 };
 

@@ -37,7 +37,7 @@ class HTML{
     }
 
     private function writeOK($e){
-        return '<font color="#0000FF">' . $e . '</font><br />';
+        return '<font color="#00AA00">' . $e . '</font><br />';
     }
 
     private function page(){
