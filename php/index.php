@@ -14,20 +14,28 @@ define('LOCK_LIFE', 20);
 // Max packets per request
 define('REQUEST_PACKETS', 10);
 
+// How much contribute we want, from each browse.
+define('CONTRIBUTE', 1);
+
+
+
 ///////////////////////// DEFINE NECESSARY FUNCTIONS /////////////////////////
+require(dirname(__FILE__) . '/io.php');
+require(dirname(__FILE__) . '/packet.php');
+
 $nowtime = time();
 
-$cacheFilename = dirname(__FILE__) . '/packets.txt';
-$cacheLock = dirname(__FILE__) . '/~.packets.txt.lock';
-$taskFilename = dirname(__FILE__) . '/tasks.txt';
-$audienceFilename = dirname(__FILE__) . '/audiences.txt';
+$cacheFile = new IO(dirname(__FILE__) . '/packets.txt');
+$taskFile = new IO(dirname(__FILE__) . '/tasks.txt');
+$audienceFile = new IO(dirname(__FILE__) . '/audiences.txt');
 
-$audiences = explode("\n", file_get_contents($audienceFilename));
+$audiences = $audienceFile->lines();
 
 function quit($code, $text=''){
-    global $cacheLock;
+    global $cacheFile;
 
-    if(file_exists($cacheLock)) unlink($cacheLock);
+    $cacheFile->unlock();
+
 //    header('HTTP/1.0 ' . $code, true, $code);
     die('
 <html>
@@ -61,99 +69,7 @@ function forward($url){
     curl_close($ch);
 };
 
-class PACKET{
-
-    public function isPacket($input){
-        $input = trim($input);
-
-        if(substr($input, 0, 4) != 'NPBS') return false;
-
-        if(!(
-            $this->isVersion( $version=substr($input, 4, 1) ) &&
-            $this->isTTL( $ttl=hexdec(substr($input, 5, 2)) ) &&
-            $this->isLabel( $label=strtolower(substr($input, 7, 8)) ) &&
-            $this->isChecksum(
-                $checksum=strtolower(substr($input, 15, 40))
-            ) &&
-            $this->isData( $data=substr($input, 55) )
-        ))
-            return false;
-
-        $data = str_replace(
-            array('_', '-', '*'), array('+', '/', '='), $data
-        );
-
-        return array(
-            'base64'=>$data,
-            'label'=>$label,
-            'checksum'=>$checksum,
-            'ttl'=>$ttl,
-            'version'=>$version,
-        );
-    }
-
-    public function createPacket($label, $data, $ttl=255, $version=1){
-        if(!$this->isLabel($label)) return false;
-        if(!$this->isTTL($ttl)) return false;
-
-        $checksum = sha1($data);
-        if(!$this->isData($data)) return false;
-
-        return array(
-            'base64'=>base64_encode($data),
-            'label'=>$label,
-            'checksum'=>$checksum,
-            'ttl'=>$ttl,
-            'version'=>$version,
-        );
-    }
-
-    public function stringify($packetArray){
-        $ttl = $packetArray['ttl'];
-        if($ttl < 16)
-            $ttl = '0' . dechex($ttl);
-        else
-            $ttl = dechex($ttl);
-
-        $label = $packetArray['label'];
-        $checksum = $packetArray['checksum'];
-        $data = str_replace(
-            array('+', '/', '='),
-            array('_', '-', '*'),
-            $packetArray['base64']
-        );
-
-        return 'NPBS1' . strtoupper($ttl . $label . $checksum) . $data;
-    }
-
-    private function isVersion($version){
-#       print 'Version';
-        return 1 == $version;
-    }
-
-    private function isTTL($ttl){
-#       print 'TTL';
-        return ($ttl >= 0 && $ttl <= 255);
-    }
-
-    private function isLabel($label){
-#       print 'Label';
-        return (0 != preg_match('/^[0-9a-z]{8}$/', $label));
-    }
-
-    private function isChecksum($checksum){
-#       print 'Checksum';
-        return (0 != preg_match('/^[0-9a-f]{40}$/', $checksum));
-    }
-
-    private function isData($data){
-#       print 'Data';
-        return (0 != preg_match('/^[0-9a-zA-Z_\-\*]{4,1600}/', $data));
-    }
-
-};
 $classPacket = new PACKET();
-
 
 
 
@@ -191,39 +107,14 @@ if(!$packets){
 //////////////////////// CACHE FILE OPEN AND READ ////////////////////////////
 
 /* Politely wait for a lock, if it is valid. Otherwise remove it. */
-if(file_exists($cacheLock)){
-    $lockTime = file_get_contents($cacheLock);
-    if(
-        is_numeric($lockTime) && 
-        $lockTime <= $nowtime &&
-        $nowtime - $locktime <= LOCK_LIFE
-    ){
-        for($i=0; $i < LOCK_WAIT; $i++){
-            if(!file_exists($cacheLock)) break;
-            sleep(1);
-        };
-        if(file_exists($cacheLock)) quit(503);
-    } else {
-        unlink($cacheLock);
-    };
-};
+if(!$cacheFile->lock())
+    quit(503);
 
-/* Lock up cache*/
-file_put_contents($cacheLock, $nowtime);
-
-
-
-
-if(!file_exists($cacheFilename)){
-    file_put_contents($cacheFilename, '');
-};
-
-$cached = explode("\n", file_get_contents($cacheFilename));
 
 $ary = array();
+$cached = $cacheFile->explodedLines();
 
 $cacheNeedRenew = CACHE_RENEW_COUNT;
-
 /*
 
             Cache line:
@@ -231,10 +122,7 @@ $cacheNeedRenew = CACHE_RENEW_COUNT;
         0        1       2
     CHECKSUM    TIME    DATA
 */
-
-foreach($cached as $item){
-    $itemParts = explode(' ', trim($item));
-    
+foreach($cached as $itemParts){
     if(count($itemParts) < 3) continue;
     if(strlen($itemParts[0]) != 40) continue;
     if(!is_numeric($itemParts[1])) continue;
@@ -251,7 +139,6 @@ foreach($cached as $item){
         'data'=>$itemParts[2],
     );
 };
-unset($cached);
 
 if($cacheNeedRenew <= 0){
     $content = array();
