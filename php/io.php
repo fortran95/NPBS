@@ -46,7 +46,10 @@ class IO{
     }
 
     public function lines(){
-        $lines = explode("\n", file_get_contents($this->filename));
+        $lines = array_filter(
+            explode("\n", file_get_contents($this->filename))
+        );
+
         $ret = array();
         foreach($lines as $line){
             if('' == trim($line)) continue;

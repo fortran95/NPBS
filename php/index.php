@@ -98,110 +98,142 @@ if(isset($_POST['do'])){
 };
 
 
-/* break up if $packets is null */
-if(!$packets){
-    quit(200);
-};
+if($packets){
+
+    //////////////////////// CACHE FILE OPEN AND READ ////////////////////
+
+    /* Politely wait for a lock, if it is valid. Otherwise remove it. */
+    if(!$cacheFile->lock())
+        quit(503);
 
 
+    $ary = array();
+    $cached = $cacheFile->explodedLines();
 
-
-//////////////////////// CACHE FILE OPEN AND READ ////////////////////////////
-
-/* Politely wait for a lock, if it is valid. Otherwise remove it. */
-if(!$cacheFile->lock())
-    quit(503);
-
-
-$ary = array();
-$cached = $cacheFile->explodedLines();
-
-$cacheNeedRenew = CACHE_RENEW_COUNT;
-/*
-            Cache line:
-        0        1       2
-    CHECKSUM    TIME    DATA
-*/
-foreach($cached as $itemParts){
-    if(count($itemParts) < 3) continue;
-    if(strlen($itemParts[0]) != 40) continue;
-    if(!is_numeric($itemParts[1])) continue;
-    if(
-        $itemParts[1] > $nowtime ||
-        $nowtime - $itemParts[1] > PACKET_STORAGE_LIFE
-    ){
-        $cacheNeedRenew -= 1;
-        continue;
-    };
-
-    $ary[$itemParts[0]] = array(
-        'time'=>$itemParts[1],
-        'data'=>$itemParts[2],
-    );
-};
-
-if($cacheNeedRenew <= 0){
-    $content = array();
-    foreach($ary as $key=>$value)
-        $content[] = array($key, $value['time'], $value['data']);
-    $cacheFile->writeExplodedLines($content);
-};
-
-$cacheFile->unlock();
-
-
-
-
-///////////////// SAVE PACKETS AND GENERATE NETWORK TASKS ////////////////////
-
-$acceptedPackets = array();
-
-# filter out packets existed or have bad checksums.
-foreach($packets as $packet){
-    if(array_key_exists($packet['checksum'], $ary)) continue;
-
-    try{
-        if($packet['checksum'] != sha1(base64_decode($packet['base64'])))
+    $cacheNeedRenew = CACHE_RENEW_COUNT;
+    /*
+                Cache line:
+            0        1       2
+        CHECKSUM    TIME    DATA
+    */
+    foreach($cached as $itemParts){
+        if(count($itemParts) < 3) continue;
+        if(strlen($itemParts[0]) != 40) continue;
+        if(!is_numeric($itemParts[1])) continue;
+        if(
+            $itemParts[1] > $nowtime ||
+            $nowtime - $itemParts[1] > PACKET_STORAGE_LIFE
+        ){
+            $cacheNeedRenew -= 1;
             continue;
-    } catch(Exception $e){
-        continue;
+        };
+
+        $ary[$itemParts[0]] = array(
+            'time'=>$itemParts[1],
+            'data'=>$itemParts[2],
+        );
     };
 
-    if(count($acceptedPackets) < REQUEST_PACKETS)
-        $acceptedPackets[$packet['checksum']] = $packet;
-};
+    if($cacheNeedRenew <= 0){
+        $content = array();
+        foreach($ary as $key=>$value)
+            $content[] = array($key, $value['time'], $value['data']);
+        $cacheFile->writeExplodedLines($content);
+    };
 
-# get tasks and append to cache file
-foreach($acceptedPackets as $checksum=>$packet){
-    $cacheFile->appendExploded(array(
-        $packet['checksum'],
-        $nowtime,
-        $classPacket->stringify($packet),
-    ));
+    $cacheFile->unlock();
 
-    if(0 == $packet['ttl']) continue;
+    ///////////////// SAVE PACKETS AND GENERATE NETWORK TASKS ////////////
 
-    $packet['ttl'] -= 1;
-    $packetStr = $classPacket->stringify($packet);
+    $acceptedPackets = array();
 
-    foreach($audiences as $audience){
-        if(!$audience = trim($audience)) continue;
+    # filter out packets existed or have bad checksums.
+    foreach($packets as $packet){
+        if(array_key_exists($packet['checksum'], $ary)) continue;
 
-        $taskURL = $audience . $packetStr;
-        $taskID = md5($taskURL);
+        try{
+            if($packet['checksum'] != sha1(base64_decode($packet['base64'])))
+                continue;
+        } catch(Exception $e){
+            continue;
+        };
 
-        $taskFile->appendExploded(array(
-            '+',
-            $taskID,
-            $taskURL,
+        if(count($acceptedPackets) < REQUEST_PACKETS)
+            $acceptedPackets[$packet['checksum']] = $packet;
+    };
+
+    # get tasks and append to cache file
+    foreach($acceptedPackets as $checksum=>$packet){
+        $cacheFile->appendExploded(array(
+            $packet['checksum'],
+            $nowtime,
+            $classPacket->stringify($packet),
         ));
+
+        if(0 == $packet['ttl']) continue;
+
+        $packet['ttl'] -= 1;
+        $packetStr = $classPacket->stringify($packet);
+
+        foreach($audiences as $audience){
+            if(!$audience = trim($audience)) continue;
+
+            $taskURL = $audience . $packetStr;
+            $taskID = md5($taskURL);
+
+            $taskFile->appendExploded(array(
+                '+',
+                $taskID,
+                $taskURL,
+            ));
+        };
     };
+
+    //////////////////////////////// DONE ////////////////////////////////
+
 };
 
 
 
 ///////////////////// READ TASK FILE AND DO A FEW TASKS //////////////////////
+$tasks = array();
+$cacheNeedRenew = CACHE_RENEW_COUNT;
+
+# read in all tasks
+$taskFile->lock();
+
+foreach($taskFile->explodedLines() as $parts){
+    if(count($parts) < 2) continue;
+
+    if($parts[0] == '+') $tasks[$parts[1]] = $parts[2];
+    if($parts[0] == '-'){
+        $tasks[$parts[1]] = false;
+        $cacheNeedRenew -= 1;
+    };
+};
+$tasks = array_filter($tasks);
+if($cacheNeedRenew <= 0){
+    $content = array();
+    foreach($tasks as $key=>$value)
+        $content[] = array('+', $key, $value);
+    $taskFile->writeExplodedLines($content);
+};
+
+$taskFile->unlock();
+
+# pick up some task
+$selected = array();
+foreach($tasks as $key=>$value){
+    if(count($selected) > CONTRIBUTE) break;
+    $selected[$key] = $value;
+};
 
 
+# perform task
+foreach($selected as $key=>$url){
+    forward($url);
+    print '<a href="' . $url . '" target="_blank">[CLICK HERE TO MANUALLY FORWARD]</a><br />';
+    $taskFile->appendExploded(array('-', $key));
+};
 
 quit(200, var_dump($packets));
