@@ -196,7 +196,7 @@ if(!file_exists($cacheFilename)){
     file_put_contents($cacheFilename, '');
 };
 
-$cached = explode('\n', file_get_contents($cacheFilename));
+$cached = explode("\n", file_get_contents($cacheFilename));
 
 $ary = array();
 $task = array();
@@ -239,7 +239,7 @@ if($cacheNeedRenew <= 0){
     foreach($ary as $key=>$value){
         $content[] = "$key {$value['time']} {$value['task']} {$value['data']}";
     };
-    $content = implode('\n', $content);
+    $content = implode("\n", $content);
     file_put_contents($cacheFilename, $content);
 };
 
@@ -250,8 +250,26 @@ unlink($cacheLock);
 
 //////////////////// NETWORK OPERATIONS AND CACHE TASKS //////////////////////
 
+$acceptedPackets = array();
+
 foreach($packets as $packet){
     if(array_key_exists($packet['checksum'], $ary)) continue;
+
+    try{
+        if($packet['checksum'] != sha1(base64_decode($packet['base64'])))
+            continue;
+    } catch(Exception $e){
+        continue;
+    };
+
+    $acceptedPackets[$packet['checksum']] = $packet;
+};
+
+print var_dump($ary);
+print '<hr />';
+print var_dump($acceptedPackets);
+
+foreach($acceptedPackets as $checksum=>$packet){
     file_put_contents(
         $cacheFilename, 
         implode(' ', array(
@@ -259,9 +277,9 @@ foreach($packets as $packet){
             $nowtime,
             0, // FIXME
             $packet['__original__'],
-        )) . '\n',
+        )) . "\n",
         FILE_APPEND | LOCK_EX
-    )
+    );
 };
 
 
