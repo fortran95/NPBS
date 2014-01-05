@@ -1,9 +1,9 @@
 <?php
 // How long should a packet be stored.
-define('PACKET_STORAGE_LIFE', 86400);
+define('PACKET_STORAGE_LIFE', 864000);
 
 // When there are more than so many packets in cache, renew it.
-define('CACHE_RENEW_COUNT', 100);
+define('CACHE_RENEW_COUNT', 20);
 
 // If there is a write lock, wait up to so many seconds.
 define('LOCK_WAIT', 15);

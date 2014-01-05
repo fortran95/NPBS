@@ -72,7 +72,7 @@ class IO{
         foreach($write as $parts){
             $content[] = implode(' ', $parts);
         };
-        $content = implode("\n", $content);
+        $content = implode("\n", $content) . "\n";
         file_put_contents($this->filename, $content);
     }
 
