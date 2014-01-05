@@ -33,9 +33,9 @@ The NPBS Packet is a string, constructed in following way:
                 +-----+-----+-------+----------+----------------------+
     Fields      | VER | TTL | LABEL | CHECKSUM |         DATA         |
                 +-----+-----+-------+----------+----------------------+
-    Length      |  5  |  2  |   8   |    40    |        <=1600        | (bytes)
+    Length      |  5  |  2  |   8   |    40    |  4 <= LENGTH <=1600  | (bytes)
                 +-----+-----+-------+----------+----------------------+
-    Charset     | VER | HEX |  B32  |    HEX   |         B64M         |
+    Charset     | VER | HEX |  C+N  |    HEX   |         B64M         |
                 +-----+-----+-------+----------+----------------------+
 
 VER stands for version and is equal to ascii string `NPBS1`.
@@ -44,7 +44,7 @@ VER stands for version and is equal to ascii string `NPBS1`.
 
 HEX, stands for case-insensitive character series with `0-9` and `a-f`.
 
-B32, stands for case-insensitive character series with `4-9` and `a-z`.
+C+N, stands for case-insensitive character series with `0-9` and `a-z`.
 
 B64M, stands for standard Base64 encoding, but use such replacements:
 * `+` replaced by `_`.
