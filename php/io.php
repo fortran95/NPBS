@@ -11,6 +11,7 @@ class IO{
 
     public function lock(){
         $lockname = $this->filename . '.lock';
+        $nowtime = time();
 
         if(file_exists($lockname)){
             $lockTime = file_get_contents($lockname);
@@ -36,6 +37,7 @@ class IO{
 
     public function unlock(){
         $lockname = $this->filename . '.lock';
+        if(!file_exists($lockname)) return;
         unlink($lockname);
     }
 
@@ -60,7 +62,7 @@ class IO{
 
     public function writeExplodedLines($write){
         $content = array();
-        for($write as $parts){
+        foreach($write as $parts){
             $content[] = implode(' ', $parts);
         };
         $content = implode("\n", $content);

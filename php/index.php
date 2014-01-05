@@ -188,7 +188,7 @@ foreach($acceptedPackets as $checksum=>$packet){
         $taskURL = $audience . $packetStr;
         $taskID = md5($taskURL);
 
-        $taskFile->append(array(
+        $taskFile->appendExploded(array(
             '+',
             $taskID,
             $taskURL,
