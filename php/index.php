@@ -20,8 +20,10 @@ define('CONTRIBUTE', 2);
 
 
 ///////////////////////// DEFINE NECESSARY FUNCTIONS /////////////////////////
+require(dirname(__FILE__) . '/html.php');
 require(dirname(__FILE__) . '/io.php');
 require(dirname(__FILE__) . '/packet.php');
+require(dirname(__FILE__) . '/securimage/securimage.php');
 
 $nowtime = time();
 
@@ -29,32 +31,19 @@ $cacheFile = new IO(dirname(__FILE__) . '/save/packets.txt');
 $taskFile = new IO(dirname(__FILE__) . '/save/tasks.txt');
 $audienceFile = new IO(dirname(__FILE__) . '/save/audiences.txt');
 
-$audiences = $audienceFile->lines();
+$html = new HTML();
 
-function quit($code, $text=''){
-    global $cacheFile, $taskFile, $audienceFile;
+function quit($error=false){
+    global $cacheFile, $taskFile, $audienceFile, $html;
 
     $cacheFile->unlock();
     $taskFile->unlock();
     $audienceFile->unlock();
 
-//    header('HTTP/1.0 ' . $code, true, $code);
-    die('
-<html>
-    <head>
-        <title>Send a NPBS Packet!</title>
-    </head>
-    <body>
-        ' . $text . '
-        <form method="POST" action="/">
-            <input name="do" value="1" type="hidden" />
-            Label: <input name="label" size="10" maxlength="8" type="text"/>
-            <br />
-            <textarea name="data"></textarea><br />
-            <button type="submit">Send</button>
-        </form>
-    </body>
-</html>');
+    if($error)
+        $html->error($error);
+    else
+        $html->ok();
     exit;
 };
 
@@ -92,6 +81,13 @@ foreach($_GET as $key=>$value){
     if($packet !== false) $packets[] = $packet;
 };
 if(isset($_POST['do'])){
+
+    $captcha = new Securimage();
+    if(false == $captcha->check($_POST['code'])){
+        $html->setCaptchaError();
+        quit();
+    };
+
     print 'Create one packet.';
     $packet = $classPacket->createPacket(
         $_POST['label'],
@@ -169,6 +165,7 @@ if($packets){
     };
 
     # get tasks and append to cache file
+    $audiences = $audienceFile->lines();
     foreach($acceptedPackets as $checksum=>$packet){
         $cacheFile->appendExploded(array(
             $packet['checksum'],
@@ -240,13 +237,5 @@ foreach($selected as $key=>$url){
     $taskFile->appendExploded(array('-', $key));
 };
 
-require(dirname(__FILE__) . '/securimage.php');
 
-$image = new Securimage();
-if ($image->check($_POST['code']) == true) {
-  echo "Correct!";
-} else {
-  echo "Sorry, wrong code.";
-}
-
-quit(200, var_dump($packets));
+quit();
