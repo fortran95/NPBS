@@ -35,10 +35,12 @@ class PACKET{
         if(!$this->isTTL($ttl)) return false;
 
         $checksum = sha1($data);
+
+        $data = base64_encode($data);
         if(!$this->isData($data)) return false;
 
         return array(
-            'base64'=>base64_encode($data),
+            'base64'=>$data,
             'label'=>$label,
             'checksum'=>$checksum,
             'ttl'=>$ttl,

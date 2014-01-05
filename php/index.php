@@ -17,6 +17,9 @@ define('REQUEST_PACKETS', 10);
 // How much contribute we want, from each browse.
 define('CONTRIBUTE', 2);
 
+// CAPTCHA
+define('CAPTCHA', false);
+
 
 
 ///////////////////////// DEFINE NECESSARY FUNCTIONS /////////////////////////
@@ -81,22 +84,25 @@ foreach($_GET as $key=>$value){
     if($packet !== false) $packets[] = $packet;
 };
 if(isset($_POST['do'])){
+    $html->setAkashicData($_POST['label'], $_POST['data']);
 
-    $captcha = new Securimage();
-    if(false == $captcha->check($_POST['code'])){
-        $html->setCaptchaError();
-        quit();
+    if(CAPTCHA){
+        $captcha = new Securimage();
+        if(false == $captcha->check($_POST['code'])){
+            $html->setCaptchaError();
+            quit();
+        };
     };
 
-    print 'Create one packet.';
-    $packet = $classPacket->createPacket(
-        $_POST['label'],
-        $_POST['data']
-    );
-    if($packet !== false)
+    $packet = $classPacket->createPacket($_POST['label'], $_POST['data']);
+
+    if($packet !== false){
+        $html->setCreatedPacket();
         $packets[] = $packet;
-    else
-        quit(400);
+    } else {
+        $html->setPacketCreationError();
+        quit();
+    };
 };
 
 
