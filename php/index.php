@@ -198,6 +198,8 @@ if($packets){
 
     //////////////////////////////// DONE ////////////////////////////////
 
+    quit(200); // When sending, we require no contribution.
+
 };
 
 
