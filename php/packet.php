@@ -37,7 +37,13 @@ class PACKET{
         $checksum = sha1($data);
 
         $data = base64_encode($data);
-        if(!$this->isData($data)) return false;
+        $dataM = str_replace(
+            array('+', '/', '='),
+            array('_', '-', '*'),
+            $data
+        );
+
+        if(!$this->isData($dataM)) return false;
 
         return array(
             'base64'=>$data,
@@ -78,12 +84,12 @@ class PACKET{
 
     private function isLabel($label){
 #       print 'Label';
-        return (0 != preg_match('/^[0-9a-z]{8}$/', $label));
+        return (0 != preg_match('/^[0-9a-zA-Z]{8}$/', $label));
     }
 
     private function isChecksum($checksum){
 #       print 'Checksum';
-        return (0 != preg_match('/^[0-9a-f]{40}$/', $checksum));
+        return (0 != preg_match('/^[0-9a-fA-F]{40}$/', $checksum));
     }
 
     private function isData($data){

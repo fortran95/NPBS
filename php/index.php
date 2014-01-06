@@ -18,7 +18,7 @@ define('REQUEST_PACKETS', 10);
 define('CONTRIBUTE', 2);
 
 // CAPTCHA
-define('CAPTCHA', false);
+define('CAPTCHA', true);
 
 
 
@@ -84,7 +84,13 @@ foreach($_GET as $key=>$value){
     if($packet !== false) $packets[] = $packet;
 };
 if(isset($_POST['do'])){
-    $html->setAkashicData($_POST['label'], $_POST['data']);
+    $newLabel = isset($_POST['label'])?$_POST['label']:'';
+    $newData = isset($_POST['data'])?$_POST['data']:'';
+
+    $newLabel = trim(strtolower($newLabel));
+    $newData = trim($newData);
+
+    $html->setAkashicData($newLabel, $newData);
 
     if(CAPTCHA){
         $captcha = new Securimage();
@@ -94,7 +100,7 @@ if(isset($_POST['do'])){
         };
     };
 
-    $packet = $classPacket->createPacket($_POST['label'], $_POST['data']);
+    $packet = $classPacket->createPacket($newLabel, $newData);
 
     if($packet !== false){
         $html->setCreatedPacket();
